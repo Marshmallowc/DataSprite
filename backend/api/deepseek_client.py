@@ -237,7 +237,11 @@ class DeepSeekClient:
             
             row = {}
             for col in columns:
-                if col == "身高":
+                if col == "价格":
+                    row[col] = f"{1000 + i * 100}元"  # 添加单位
+                elif col == "库存":
+                    row[col] = str(100 + i * 10)  # 转换为字符串
+                elif col == "身高":
                     row[col] = f"{160 + i * 5}cm"
                 elif col == "体重":
                     row[col] = f"{50 + i * 3}kg"
@@ -249,7 +253,7 @@ class DeepSeekClient:
                 elif col == "性别":
                     row[col] = "男" if i % 2 == 0 else "女"
                 else:
-                    row[col] = f"测试数据_{col}_{i + 1}"
+                    row[col] = f"{col}_{i + 1}"  # 简化测试数据格式
             mock_data.append(row)
             
             if progress_callback:

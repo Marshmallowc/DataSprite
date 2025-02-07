@@ -102,3 +102,21 @@ class SKUGenerator:
     def update_model(self, model: str):
         """更新模型"""
         self.deepseek_client.update_model(model)
+
+    def validate_existing_data(self, df: pd.DataFrame) -> None:
+        """验证已有数据的格式"""
+        if not isinstance(df, pd.DataFrame):
+            raise ValueError("输入必须是pandas DataFrame")
+        
+        if df.empty:
+            raise ValueError("数据不能为空")
+        
+        # 检查必要的列
+        required_cols = set(df.columns)
+        if not required_cols:
+            raise ValueError("数据必须包含至少一列")
+        
+        # 检查数据类型
+        for col in df.columns:
+            if not df[col].dtype in ['object', 'string']:
+                raise ValueError(f"列 '{col}' 必须是文本类型")
