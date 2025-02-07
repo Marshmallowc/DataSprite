@@ -41,30 +41,36 @@ class SKUGenerator:
         progress_callback=None
     ) -> List[Dict[str, str]]:
         """生成SKU数据"""
-        # 验证输入
-        columns = self.validate_columns(columns)
-        prompt = self.validate_prompt(prompt)
-        
-        if not 1 <= num_rows <= 50:
-            raise ValueError("生成行数必须在1到50之间")
-        
-        # 检查API密钥
-        if not self.deepseek_client.use_mock:
-            if (not self.deepseek_client.api_key or 
-                self.deepseek_client.api_key == "sk_dummy_key_for_mock_mode"):
-                raise Exception(
-                    "未配置有效的API密钥。请先:\n"
-                    "1. 配置有效的API密钥，或\n"
-                    "2. 启用模拟数据模式"
-                )
-        
-        # 调用API生成数据
-        return await self.deepseek_client.generate_sku_content(
-            columns,
-            prompt,
-            num_rows,
-            progress_callback=progress_callback
-        )
+        try:
+            # 验证输入
+            columns = self.validate_columns(columns)
+            prompt = self.validate_prompt(prompt)
+            
+            if not 1 <= num_rows <= 50:
+                raise ValueError("生成行数必须在1到50之间")
+            
+            if progress_callback:
+                progress_callback("🔍 验证输入参数...")
+            
+            # 检查API密钥
+            if not self.deepseek_client.use_mock:
+                if not self.deepseek_client.api_key:
+                    raise Exception("未配置API密钥")
+            
+            # 调用API生成数据
+            result = await self.deepseek_client.generate_sku_content(
+                columns,
+                prompt,
+                num_rows,
+                progress_callback=progress_callback  # 确保正确传递回调
+            )
+            
+            return result
+            
+        except Exception as e:
+            if progress_callback:
+                progress_callback(f"❌ 错误: {str(e)}")
+            raise
     
     def validate_generated_data(
         self, 

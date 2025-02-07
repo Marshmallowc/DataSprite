@@ -70,7 +70,9 @@ class DeepSeekClient:
     ) -> List[Dict[str, str]]:
         """一次性生成所有SKU数据"""
         if self.use_mock:
-            return self._generate_mock_data(columns, num_rows)
+            if progress_callback:
+                progress_callback("🔄 使用模拟数据模式")
+            return self._generate_mock_data(columns, num_rows, progress_callback)
         
         system_prompt = (
             f"你是一个严格的SKU数据生成助手。请按照以下格式生成数据：\n"
@@ -221,11 +223,18 @@ class DeepSeekClient:
                 progress_callback("❌ 生成失败，请查看错误详情")
             raise Exception(f"生成SKU数据失败: {str(e)}")
     
-    def _generate_mock_data(self, columns: List[str], num_rows: int) -> List[Dict[str, str]]:
+    def _generate_mock_data(self, columns: List[str], num_rows: int, progress_callback=None) -> List[Dict[str, str]]:
         """生成模拟数据"""
         warnings.warn("使用模拟数据模式，返回测试数据。")
         mock_data = []
+        
+        if progress_callback:
+            progress_callback("🚀 开始生成模拟数据...")
+        
         for i in range(num_rows):
+            if progress_callback:
+                progress_callback(f"⏳ 正在生成第 {i+1}/{num_rows} 条数据...")
+            
             row = {}
             for col in columns:
                 if col == "身高":
@@ -242,4 +251,11 @@ class DeepSeekClient:
                 else:
                     row[col] = f"测试数据_{col}_{i + 1}"
             mock_data.append(row)
+            
+            if progress_callback:
+                progress_callback(f"✅ 完成第 {i+1}/{num_rows} 条数据")
+        
+        if progress_callback:
+            progress_callback("🎉 模拟数据生成完成！")
+        
         return mock_data 
