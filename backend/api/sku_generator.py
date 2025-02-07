@@ -1,11 +1,11 @@
 import pandas as pd
 from typing import List, Dict, Optional
 from .deepseek_client import DeepSeekClient
-from config import DEEPSEEK_API_KEY
+from config import DEEPSEEK_API_KEY, DEFAULT_MODEL
 
 class SKUGenerator:
-    def __init__(self):
-        self.deepseek_client = DeepSeekClient(DEEPSEEK_API_KEY)
+    def __init__(self, model: str = DEFAULT_MODEL):
+        self.deepseek_client = DeepSeekClient(DEEPSEEK_API_KEY, model=model)
     
     def validate_columns(self, columns: List[str]) -> List[str]:
         """验证并清理列名"""
@@ -38,9 +38,9 @@ class SKUGenerator:
         columns: List[str], 
         prompt: str, 
         num_rows: int,
-        retries: int = 3
+        progress_callback=None
     ) -> List[Dict[str, str]]:
-        """生成SKU数据，支持重试"""
+        """生成SKU数据"""
         # 验证输入
         columns = self.validate_columns(columns)
         prompt = self.validate_prompt(prompt)
@@ -48,23 +48,23 @@ class SKUGenerator:
         if not 1 <= num_rows <= 50:
             raise ValueError("生成行数必须在1到50之间")
         
-        # 尝试生成数据，支持重试
-        last_error = None
-        for attempt in range(retries):
-            try:
-                data = await self.deepseek_client.generate_sku_content(
-                    columns,
-                    prompt,
-                    num_rows
+        # 检查API密钥
+        if not self.deepseek_client.use_mock:
+            if (not self.deepseek_client.api_key or 
+                self.deepseek_client.api_key == "sk_dummy_key_for_mock_mode"):
+                raise Exception(
+                    "未配置有效的API密钥。请先:\n"
+                    "1. 配置有效的API密钥，或\n"
+                    "2. 启用模拟数据模式"
                 )
-                # 验证生成的数据
-                self.validate_generated_data(data, columns)
-                return data
-            except Exception as e:
-                last_error = e
-                if attempt < retries - 1:  # 如果还有重试机会
-                    continue
-                raise Exception(f"生成SKU数据失败（已重试{retries}次）: {str(last_error)}")
+        
+        # 调用API生成数据
+        return await self.deepseek_client.generate_sku_content(
+            columns,
+            prompt,
+            num_rows,
+            progress_callback=progress_callback
+        )
     
     def validate_generated_data(
         self, 
@@ -87,4 +87,12 @@ class SKUGenerator:
             # 检查值是否为空
             empty_cols = [col for col, val in row.items() if not str(val).strip()]
             if empty_cols:
-                raise ValueError(f"以下列的值不能为空：{empty_cols}") 
+                raise ValueError(f"以下列的值不能为空：{empty_cols}")
+    
+    def update_api_key(self, api_key: str):
+        """更新API密钥"""
+        self.deepseek_client.update_api_key(api_key) 
+    
+    def update_model(self, model: str):
+        """更新模型"""
+        self.deepseek_client.update_model(model)

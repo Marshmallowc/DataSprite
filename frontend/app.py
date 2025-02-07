@@ -10,6 +10,7 @@ root_dir = Path(__file__).parent.parent
 sys.path.append(str(root_dir))
 
 from backend.api.sku_generator import SKUGenerator
+from config import SUPPORTED_MODELS, DEFAULT_MODEL
 
 def init_session_state():
     if 'sku_columns' not in st.session_state:
@@ -17,9 +18,14 @@ def init_session_state():
     if 'sku_data' not in st.session_state:
         st.session_state.sku_data = None
 
-async def generate_sku_data(generator, columns, prompt, num_rows):
+async def generate_sku_data(generator, columns, prompt, num_rows, progress_callback=None):
     """异步生成SKU数据"""
-    return await generator.generate_sku_data(columns, prompt, num_rows)
+    return await generator.generate_sku_data(
+        columns, 
+        prompt, 
+        num_rows,
+        progress_callback=progress_callback
+    )
 
 def show_error_details(error: Exception):
     """显示错误详情"""
@@ -43,9 +49,73 @@ def show_help():
         - 生成行数限制在1-50行之间
         """)
 
+def show_api_settings():
+    """显示API设置"""
+    with st.sidebar.expander("API设置 ⚙️", expanded=False):
+        # 初始化会话状态
+        if 'api_key' not in st.session_state:
+            st.session_state.api_key = None
+            st.session_state.use_mock = True
+            st.session_state.model = DEFAULT_MODEL
+        
+        # 模型选择
+        model = st.selectbox(
+            "选择模型",
+            options=list(SUPPORTED_MODELS.keys()),
+            index=list(SUPPORTED_MODELS.keys()).index(st.session_state.model),
+            format_func=lambda x: f"{x} - {SUPPORTED_MODELS[x]['description']}",
+            help="选择要使用的模型"
+        )
+        
+        # API密钥输入
+        api_key = st.text_input(
+            "DeepSeek API密钥",
+            type="password",
+            value=st.session_state.api_key if st.session_state.api_key else "",
+            help="在 https://platform.deepseek.com/ 获取API密钥"
+        )
+        
+        # 模拟模式切换
+        use_mock = st.checkbox(
+            "使用模拟数据",
+            value=st.session_state.use_mock,
+            help="开启后将返回测试数据，无需API密钥"
+        )
+        
+        if st.button("保存设置", use_container_width=True):
+            if api_key and not use_mock:
+                if not api_key.startswith('sk-'):
+                    st.error("❌ API密钥格式不正确，应以'sk-'开头")
+                    return
+            st.session_state.api_key = api_key
+            st.session_state.use_mock = use_mock
+            st.session_state.model = model
+            st.success("✅ 设置已保存")
+            
+        # 显示当前状态
+        st.markdown("---")
+        st.markdown("**当前状态**")
+        st.markdown(f"🤖 模型：**{st.session_state.model}**")
+        if use_mock:
+            st.info("🔄 使用模拟数据模式")
+        elif api_key:
+            st.success("🔑 已配置API密钥")
+        else:
+            st.warning("⚠️ 未配置API密钥")
+
+def show_progress(total_rows: int):
+    """显示生成进度"""
+    progress_bar = st.progress(0)
+    progress_text = st.empty()
+    
+    def update_progress(message: str):
+        progress_text.text(message)
+    
+    return update_progress
+
 def main():
     st.set_page_config(
-        page_title="智能SKU生成器",
+        page_title="DataSprite - 智能SKU生成器",
         layout="wide",
         initial_sidebar_state="expanded"
     )
@@ -53,7 +123,10 @@ def main():
     # 显示帮助信息
     show_help()
     
-    st.title("智能SKU生成器 🎯")
+    # 显示API设置
+    show_api_settings()
+    
+    st.title("DataSprite 数据精灵 🧚‍♂️")
     init_session_state()
     
     # 侧边栏：输入SKU属性
@@ -113,21 +186,34 @@ def main():
                     if not prompt:
                         raise ValueError("请输入产品描述或关键词")
                     
-                    with st.spinner("正在生成SKU数据..."):
-                        generator = SKUGenerator()
-                        generator.deepseek_client.use_mock = True
+                    with st.spinner("准备生成数据..."):
+                        generator = SKUGenerator(model=st.session_state.model)
+                        
+                        # 使用保存的设置
+                        if st.session_state.api_key and not st.session_state.use_mock:
+                            generator.update_api_key(st.session_state.api_key)
+                        generator.deepseek_client.use_mock = st.session_state.use_mock
+                        
+                        # 如果不是模拟模式且没有API密钥，显示错误
+                        if not st.session_state.use_mock and not st.session_state.api_key:
+                            raise ValueError("请先配置DeepSeek API密钥或启用模拟数据模式")
+                        
+                        progress_callback = show_progress(num_rows)
                         
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
                         try:
+                            # 一次性生成所有数据
                             data = loop.run_until_complete(
                                 generate_sku_data(
                                     generator,
                                     st.session_state.sku_columns,
                                     prompt,
-                                    num_rows
+                                    num_rows,
+                                    progress_callback=progress_callback
                                 )
                             )
+                            
                             st.session_state.sku_data = pd.DataFrame(data)
                             st.success("✅ SKU数据生成成功！")
                         finally:
