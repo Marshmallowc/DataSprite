@@ -1,26 +1,3 @@
-# Web scraping
-playwright>=1.41.0
-html5lib>=1.1
-
-# Search engine
-duckduckgo-search>=7.2.1
-
-# LLM integration
-openai>=1.59.8 # o1 support
-anthropic>=0.42.0
-python-dotenv>=1.0.0
-
-# Testing
-unittest2>=1.1.0
-pytest>=8.0.0
-pytest-asyncio>=0.23.5
-
-# Google Generative AI
-google-generativeai
-
-# gRPC, for Google Generative AI preventing WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-grpcio==1.60.1
-
 # Web 框架
 streamlit==1.32.0
 fastapi==0.109.2
@@ -35,11 +12,14 @@ aiohttp==3.9.1
 requests==2.31.0
 
 # 异步支持
-asyncio==3.4.3
 backoff==2.2.1
+
+# 环境变量
+python-dotenv>=1.0.0
+
+# 测试工具
+pytest>=8.0.0
+pytest-asyncio>=0.23.5
 
 # 类型提示
 typing-extensions==4.9.0
-
-# 警告处理
-warnings2==0.3.0
