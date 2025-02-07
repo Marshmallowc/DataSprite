@@ -6,6 +6,7 @@ uvicorn==0.27.1
 # 数据处理
 pandas==2.2.0
 numpy==1.26.3
+openpyxl==3.1.2
 
 # HTTP 客户端
 aiohttp==3.9.1
